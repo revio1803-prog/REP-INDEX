@@ -1,4 +1,6 @@
 const express = require("express");
+const { Pool } = require("pg");
+
 const app = express();
 
 app.use(express.json());
@@ -6,133 +8,215 @@ app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 3000;
 
-/* database */
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
-const registry = {
-  articles: {}
-};
+/* initialize database */
+
+async function initDB() {
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS identifiers (
+      id TEXT PRIMARY KEY,
+      title TEXT,
+      url TEXT,
+      year TEXT
+    )
+  `);
+
+}
+
+initDB();
+
+/* generate professional ID */
+
+async function generateRID() {
+
+  const year = new Date().getFullYear();
+
+  const result = await pool.query(
+    "SELECT COUNT(*) FROM identifiers"
+  );
+
+  const number = parseInt(result.rows[0].count) + 1;
+
+  const formatted = String(number).padStart(5,"0");
+
+  return `RID-${year}-${formatted}`;
+
+}
 
 /* homepage */
 
-app.get("/", (req, res) => {
-  res.send(`
-  <h1>REP INDEX Research Identifier System</h1>
-  <p>Welcome to the identifier registry.</p>
+app.get("/", (req,res)=>{
 
-  <a href="/create">Create Identifier</a><br>
-  <a href="/search">Search Identifier</a>
-  `);
+res.send(`
+
+<h1>REP INDEX</h1>
+
+<h3>Research Identifier Registry</h3>
+
+<a href="/create">Create Identifier</a><br><br>
+
+<a href="/search">Search Identifier</a>
+
+`);
+
 });
 
 /* health */
 
-app.get("/health", (req, res) => {
-  res.json({ status: "OK" });
+app.get("/health",(req,res)=>{
+
+res.json({status:"OK"});
+
 });
 
 /* create page */
 
-app.get("/create", (req, res) => {
-  res.send(`
-  <h2>Create Research Article ID</h2>
+app.get("/create",(req,res)=>{
 
-  <form method="POST" action="/create-rid">
+res.send(`
 
-  Title<br>
-  <input name="title"/><br><br>
+<h2>Create Research Identifier</h2>
 
-  URL<br>
-  <input name="url"/><br><br>
+<form method="POST" action="/create-rid">
 
-  <button type="submit">Create ID</button>
+Title<br>
+<input name="title"/><br><br>
 
-  </form>
-  `);
+Year<br>
+<input name="year"/><br><br>
+
+Resource URL<br>
+<input name="url"/><br><br>
+
+<button type="submit">Create Identifier</button>
+
+</form>
+
+`);
+
 });
 
-/* create rid */
+/* create identifier */
 
-app.post("/create-rid", (req, res) => {
+app.post("/create-rid", async (req,res)=>{
 
-  const id = "RID-" + Date.now();
+const id = await generateRID();
 
-  registry.articles[id] = {
-    title: req.body.title,
-    url: req.body.url
-  };
+const {title,url,year} = req.body;
 
-  res.send(`
-  <h2>Identifier Created</h2>
+await pool.query(
 
-  <p>ID: ${id}</p>
+"INSERT INTO identifiers (id,title,url,year) VALUES ($1,$2,$3,$4)",
 
-  <a href="/${id}">Open Identifier</a>
-  `);
+[id,title,url,year]
+
+);
+
+res.send(`
+
+<h2>Identifier Created</h2>
+
+<p><b>${id}</b></p>
+
+<a href="/${id}">Open Identifier Record</a>
+
+`);
+
 });
 
 /* search page */
 
-app.get("/search", (req, res) => {
-  res.send(`
-  <h2>Search Identifier</h2>
+app.get("/search",(req,res)=>{
 
-  <form action="/resolve">
+res.send(`
 
-  <input name="id"/>
+<h2>Search Identifier</h2>
 
-  <button>Search</button>
+<form action="/resolve">
 
-  </form>
-  `);
-});
+<input name="id"/>
 
-/* resolver search */
+<button>Search</button>
 
-app.get("/resolve", (req, res) => {
+</form>
 
-  const id = req.query.id;
-
-  if (registry.articles[id]) {
-
-    res.redirect("/" + id);
-
-  } else {
-
-    res.send("Identifier not found");
-
-  }
+`);
 
 });
 
-/* resolver */
+/* search resolver */
 
-app.get("/:id", (req, res) => {
+app.get("/resolve", async (req,res)=>{
 
-  const id = req.params.id;
+const id = req.query.id;
 
-  if (registry.articles[id]) {
+const result = await pool.query(
 
-    const data = registry.articles[id];
+"SELECT * FROM identifiers WHERE id=$1",
 
-    res.send(`
-    <h2>Identifier Record</h2>
+[id]
 
-    <p>ID: ${id}</p>
-    <p>Title: ${data.title}</p>
+);
 
-    <a href="${data.url}">Open Resource</a>
-    `);
+if(result.rows.length===0){
 
-  } else {
+return res.send("Identifier not found");
 
-    res.send("Identifier not found");
+}
 
-  }
+res.redirect("/"+id);
+
+});
+
+/* identifier record page */
+
+app.get("/:id", async (req,res)=>{
+
+const id = req.params.id;
+
+const result = await pool.query(
+
+"SELECT * FROM identifiers WHERE id=$1",
+
+[id]
+
+);
+
+if(result.rows.length===0){
+
+return res.send("Identifier not found");
+
+}
+
+const data = result.rows[0];
+
+res.send(`
+
+<h2>Identifier Record</h2>
+
+<p><b>ID:</b> ${data.id}</p>
+
+<p><b>Title:</b> ${data.title}</p>
+
+<p><b>Year:</b> ${data.year}</p>
+
+<br>
+
+<a href="${data.url}">Open Resource</a>
+
+`);
 
 });
 
 /* start server */
 
-app.listen(PORT, () => {
-  console.log("REP INDEX running on port " + PORT);
+app.listen(PORT,()=>{
+
+console.log("REP INDEX running");
+
 });
