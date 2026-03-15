@@ -29,9 +29,13 @@ async function initDB() {
       id TEXT PRIMARY KEY,
       title TEXT,
       url TEXT,
-      year TEXT,
-      author_id TEXT
+      year TEXT
     )
+  `);
+
+  await pool.query(`
+    ALTER TABLE identifiers
+    ADD COLUMN IF NOT EXISTS author_id TEXT
   `);
 
 }
