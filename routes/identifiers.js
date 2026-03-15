@@ -5,14 +5,11 @@ const router = express.Router();
 const pool = require("../db/db");
 const layout = require("../views/layout");
 
+/* ---------- CREATE IDENTIFIER PAGE ---------- */
 
-/* =========================================================
-   CREATE IDENTIFIER PAGE
-========================================================= */
+router.get("/create",(req,res)=>{
 
-router.get("/create", (req, res) => {
-
-res.send(layout("Create Identifier", `
+res.send(layout("Create Identifier",`
 
 <h2>Create Research Identifier</h2>
 
@@ -37,12 +34,12 @@ res.send(layout("Create Identifier", `
 <input name="publisher">
 
 <label>Keywords</label>
-<input name="keywords" placeholder="comma separated">
+<input name="keywords">
 
 <label>Abstract</label>
 <textarea name="abstract" rows="6"></textarea>
 
-<br><br>
+<br>
 
 <button>Create Identifier</button>
 
@@ -53,11 +50,9 @@ res.send(layout("Create Identifier", `
 });
 
 
-/* =========================================================
-   CREATE IDENTIFIER
-========================================================= */
+/* ---------- CREATE IDENTIFIER ---------- */
 
-router.post("/create", async (req, res) => {
+router.post("/create", async (req,res)=>{
 
 try{
 
@@ -72,7 +67,7 @@ keywords,
 abstract
 } = req.body;
 
-/* generate identifier */
+/* generate id */
 
 const result = await pool.query(
 "SELECT COUNT(*) FROM identifiers"
@@ -82,7 +77,7 @@ const number = parseInt(result.rows[0].count) + 1;
 
 const id = `RID-${new Date().getFullYear()}-${String(number).padStart(5,"0")}`;
 
-/* save */
+/* insert */
 
 await pool.query(
 
@@ -104,9 +99,7 @@ abstract || null
 
 );
 
-/* response */
-
-res.send(layout("Identifier Created", `
+res.send(layout("Identifier Created",`
 
 <h2>Identifier Created</h2>
 
@@ -116,17 +109,11 @@ res.send(layout("Identifier Created", `
 <button>Open Record</button>
 </a>
 
-<br><br>
-
-<a href="/create">
-<button>Create Another</button>
-</a>
-
 `));
 
 }catch(err){
 
-console.error(err);
+console.log(err);
 
 res.send(layout("Error","Error creating identifier"));
 
@@ -135,16 +122,12 @@ res.send(layout("Error","Error creating identifier"));
 });
 
 
-/* =========================================================
-   BROWSE IDENTIFIERS
-========================================================= */
+/* ---------- BROWSE IDENTIFIERS ---------- */
 
 router.get("/browse", async (req,res)=>{
 
-try{
-
 const result = await pool.query(
-"SELECT * FROM identifiers ORDER BY id DESC LIMIT 100"
+"SELECT * FROM identifiers ORDER BY id DESC LIMIT 50"
 );
 
 let rows="";
@@ -166,7 +149,7 @@ res.send(layout("Identifier Registry",`
 
 <h2>Identifier Registry</h2>
 
-<table border="1" cellpadding="8">
+<table>
 
 <tr>
 <th>ID</th>
@@ -181,24 +164,12 @@ ${rows}
 
 `));
 
-}catch(err){
-
-console.error(err);
-
-res.send(layout("Error","Unable to load registry"));
-
-}
-
 });
 
 
-/* =========================================================
-   IDENTIFIER RECORD (DOI STYLE PAGE)
-========================================================= */
+/* ---------- IDENTIFIER RECORD ---------- */
 
 router.get("/rid/:id", async (req,res)=>{
-
-try{
 
 const id = req.params.id;
 
@@ -219,27 +190,23 @@ res.send(layout("Identifier Record",`
 
 <h2>${data.title}</h2>
 
-<hr>
+<p><b>ID:</b> ${data.id}</p>
 
-<p><b>Identifier</b><br>${data.id}</p>
+<p><b>Year:</b> ${data.year}</p>
 
-<p><b>Year</b><br>${data.year}</p>
+<p><b>Author:</b> ${data.author_id || "Not linked"}</p>
 
-<p><b>Author ID</b><br>${data.author_id || "Not linked"}</p>
+<p><b>Journal:</b> ${data.journal || "-"}</p>
 
-<p><b>Journal</b><br>${data.journal || "-"}</p>
+<p><b>Publisher:</b> ${data.publisher || "-"}</p>
 
-<p><b>Publisher</b><br>${data.publisher || "-"}</p>
-
-<p><b>Keywords</b><br>${data.keywords || "-"}</p>
+<p><b>Keywords:</b> ${data.keywords || "-"}</p>
 
 <br>
 
 <h3>Abstract</h3>
 
-<p>
-${data.abstract || "No abstract available."}
-</p>
+<p>${data.abstract || "No abstract available."}</p>
 
 <br>
 
@@ -247,31 +214,9 @@ ${data.abstract || "No abstract available."}
 <button>Open Resource</button>
 </a>
 
-<br><br>
-
-<h3>Citation</h3>
-
-<p>
-
-${data.title} (${data.year}).  
-${data.journal || ""}.  
-${data.publisher || ""}.  
-Research Identifier: ${data.id}
-
-</p>
-
 `));
 
-}catch(err){
-
-console.error(err);
-
-res.send(layout("Error","Unable to load record"));
-
-}
-
 });
-
 
 module.exports = router;
 ```
