@@ -30,13 +30,19 @@ CREATE TABLE IF NOT EXISTS identifiers(
 id TEXT PRIMARY KEY,
 title TEXT,
 url TEXT,
-year TEXT
+year TEXT,
+author_id TEXT
 )
 `);
 
 await pool.query(`
-ALTER TABLE identifiers
-ADD COLUMN IF NOT EXISTS author_id TEXT
+CREATE TABLE IF NOT EXISTS datasets(
+id TEXT PRIMARY KEY,
+title TEXT,
+year TEXT,
+dataset_url TEXT,
+author_id TEXT
+)
 `);
 
 }
@@ -70,6 +76,20 @@ const number = parseInt(result.rows[0].count) + 1;
 const formatted = String(number).padStart(5,"0");
 
 return `AID-${year}-${formatted}`;
+
+}
+
+async function generateDID(){
+
+const year = new Date().getFullYear();
+
+const result = await pool.query("SELECT COUNT(*) FROM datasets");
+
+const number = parseInt(result.rows[0].count) + 1;
+
+const formatted = String(number).padStart(5,"0");
+
+return `DID-${year}-${formatted}`;
 
 }
 
@@ -159,11 +179,13 @@ background:#eee;
 <nav>
 
 <a href="/">Home</a>
-<a href="/create">Create ID</a>
+<a href="/create">Create RID</a>
 <a href="/create-author">Create Author</a>
+<a href="/create-dataset">Create Dataset</a>
 <a href="/search">Search</a>
 <a href="/browse">Browse IDs</a>
 <a href="/browse-authors">Browse Authors</a>
+<a href="/browse-datasets">Browse Datasets</a>
 
 </nav>
 
@@ -192,9 +214,11 @@ res.send(layout("Home",`
 
 <p>Global Research Identifier System by Research Edge and Publication Pvt Ltd.</p>
 
-<a href="/create"><button>Create Identifier</button></a>
+<a href="/create"><button>Create Research ID</button></a>
 
 <a href="/create-author"><button>Create Author</button></a>
+
+<a href="/create-dataset"><button>Create Dataset</button></a>
 
 <a href="/browse"><button>Browse Registry</button></a>
 
@@ -261,9 +285,7 @@ const author = await pool.query(
 );
 
 if(author.rows.length===0){
-
 return res.send(layout("Not Found","Author not found"));
-
 }
 
 const papers = await pool.query(
@@ -271,10 +293,19 @@ const papers = await pool.query(
 [id]
 );
 
-let pub="";
+const datasets = await pool.query(
+"SELECT * FROM datasets WHERE author_id=$1",
+[id]
+);
 
+let pub="";
 papers.rows.forEach(p=>{
 pub += `<li><a href="/${p.id}">${p.title}</a></li>`;
+});
+
+let data="";
+datasets.rows.forEach(d=>{
+data += `<li><a href="/dataset/${d.id}">${d.title}</a></li>`;
 });
 
 res.send(layout("Author Profile",`
@@ -286,16 +317,16 @@ res.send(layout("Author Profile",`
 <p><b>Institution:</b> ${author.rows[0].institution}</p>
 
 <h3>Publications</h3>
+<ul>${pub}</ul>
 
-<ul>
-${pub}
-</ul>
+<h3>Datasets</h3>
+<ul>${data}</ul>
 
 `));
 
 });
 
-/* ---------- CREATE IDENTIFIER ---------- */
+/* ---------- CREATE RID ---------- */
 
 app.get("/create",(req,res)=>{
 
@@ -348,19 +379,29 @@ res.send(layout("Identifier Created",`
 
 });
 
-/* ---------- SEARCH ---------- */
+/* ---------- CREATE DATASET ---------- */
 
-app.get("/search",(req,res)=>{
+app.get("/create-dataset",(req,res)=>{
 
-res.send(layout("Search",`
+res.send(layout("Create Dataset",`
 
-<h2>Search Identifier</h2>
+<h2>Create Dataset Identifier</h2>
 
-<form action="/resolve">
+<form method="POST" action="/create-did">
 
-<input name="id" placeholder="Enter identifier">
+Title
+<input name="title" required>
 
-<button>Search</button>
+Year
+<input name="year" required>
+
+Dataset URL
+<input name="dataset_url" required>
+
+Author ID
+<input name="author_id">
+
+<button>Create Dataset ID</button>
 
 </form>
 
@@ -368,20 +409,103 @@ res.send(layout("Search",`
 
 });
 
-app.get("/resolve", async (req,res)=>{
+app.post("/create-did", async (req,res)=>{
 
-const id = req.query.id;
+const id = await generateDID();
+
+const {title,year,dataset_url,author_id} = req.body;
+
+await pool.query(
+"INSERT INTO datasets (id,title,year,dataset_url,author_id) VALUES ($1,$2,$3,$4,$5)",
+[id,title,year,dataset_url,author_id]
+);
+
+res.send(layout("Dataset Created",`
+
+<h2>Dataset ID Created</h2>
+
+<p><b>${id}</b></p>
+
+<a href="/dataset/${id}"><button>Open Dataset</button></a>
+
+`));
+
+});
+
+/* ---------- DATASET PAGE ---------- */
+
+app.get("/dataset/:id", async (req,res)=>{
+
+const id = req.params.id;
 
 const result = await pool.query(
-"SELECT * FROM identifiers WHERE id=$1",
+"SELECT * FROM datasets WHERE id=$1",
 [id]
 );
 
 if(result.rows.length===0){
-return res.send(layout("Not Found","Identifier not found"));
+return res.send(layout("Not Found","Dataset not found"));
 }
 
-res.redirect("/"+id);
+const data = result.rows[0];
+
+res.send(layout("Dataset Record",`
+
+<h2>${data.title}</h2>
+
+<p><b>Dataset ID:</b> ${data.id}</p>
+
+<p><b>Year:</b> ${data.year}</p>
+
+<p><b>Author:</b> ${data.author_id || "Not linked"}</p>
+
+<a href="${data.dataset_url}" target="_blank">
+<button>Download Dataset</button>
+</a>
+
+`));
+
+});
+
+/* ---------- BROWSE DATASETS ---------- */
+
+app.get("/browse-datasets", async (req,res)=>{
+
+const result = await pool.query(
+"SELECT * FROM datasets ORDER BY id DESC"
+);
+
+let rows="";
+
+result.rows.forEach(d=>{
+rows += `
+<tr>
+<td>${d.id}</td>
+<td>${d.title}</td>
+<td>${d.year}</td>
+<td><a href="/dataset/${d.id}">View</a></td>
+</tr>
+`;
+});
+
+res.send(layout("Datasets",`
+
+<h2>Dataset Registry</h2>
+
+<table>
+
+<tr>
+<th>ID</th>
+<th>Title</th>
+<th>Year</th>
+<th>Record</th>
+</tr>
+
+${rows}
+
+</table>
+
+`));
 
 });
 
@@ -427,49 +551,7 @@ ${rows}
 
 });
 
-/* ---------- BROWSE AUTHORS ---------- */
-
-app.get("/browse-authors", async (req,res)=>{
-
-const result = await pool.query(
-"SELECT * FROM authors ORDER BY id DESC"
-);
-
-let rows="";
-
-result.rows.forEach(a=>{
-rows += `
-<tr>
-<td>${a.id}</td>
-<td>${a.name}</td>
-<td>${a.institution}</td>
-<td><a href="/author/${a.id}">Profile</a></td>
-</tr>
-`;
-});
-
-res.send(layout("Authors",`
-
-<h2>Author Registry</h2>
-
-<table>
-
-<tr>
-<th>ID</th>
-<th>Name</th>
-<th>Institution</th>
-<th>Profile</th>
-</tr>
-
-${rows}
-
-</table>
-
-`));
-
-});
-
-/* ---------- IDENTIFIER RECORD (LAST ROUTE) ---------- */
+/* ---------- IDENTIFIER RECORD ---------- */
 
 app.get("/:id", async (req,res)=>{
 
@@ -481,9 +563,7 @@ const result = await pool.query(
 );
 
 if(result.rows.length===0){
-
 return res.send(layout("Not Found","Identifier not found"));
-
 }
 
 const data = result.rows[0];
