@@ -101,6 +101,28 @@ res.send("Identifier format not recognized");
 
 });
 
+/* ---------- DIRECT IDENTIFIER RESOLVER ---------- */
+
+app.get("/:identifier", (req,res)=>{
+
+const id = req.params.identifier;
+
+if(id.startsWith("RID-")){
+return res.redirect("/rid/"+id);
+}
+
+if(id.startsWith("AID-")){
+return res.redirect("/author/"+id);
+}
+
+if(id.startsWith("DID-")){
+return res.redirect("/dataset/"+id);
+}
+
+res.send("Identifier not recognized");
+
+});
+
 /* ---------- SERVER ---------- */
 
 app.listen(PORT,()=>{
