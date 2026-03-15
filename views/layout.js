@@ -1,3 +1,4 @@
+```javascript
 function layout(title, content) {
 
 return `
@@ -7,11 +8,15 @@ return `
 
 <head>
 
+<meta charset="UTF-8">
+
 <title>${title}</title>
 
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
+
+/* GLOBAL */
 
 *{
 box-sizing:border-box;
@@ -19,9 +24,10 @@ box-sizing:border-box;
 
 body{
 margin:0;
-font-family: "Segoe UI", Arial, sans-serif;
+font-family:"Segoe UI", Arial, sans-serif;
 background:#f1f5f9;
 color:#1e293b;
+line-height:1.6;
 }
 
 /* HEADER */
@@ -76,7 +82,32 @@ h1,h2,h3{
 margin-top:0;
 }
 
-/* BUTTONS */
+/* LABELS */
+
+label{
+display:block;
+font-size:14px;
+margin-bottom:4px;
+color:#334155;
+}
+
+/* INPUTS */
+
+input,
+textarea{
+width:100%;
+padding:10px;
+border:1px solid #cbd5e1;
+border-radius:6px;
+margin-bottom:15px;
+font-size:14px;
+}
+
+textarea{
+resize:vertical;
+}
+
+/* BUTTON */
 
 button{
 background:#2563eb;
@@ -90,17 +121,6 @@ font-size:14px;
 
 button:hover{
 background:#1d4ed8;
-}
-
-/* INPUTS */
-
-input{
-width:100%;
-padding:10px;
-border:1px solid #cbd5e1;
-border-radius:6px;
-margin-top:5px;
-margin-bottom:15px;
 }
 
 /* TABLE */
@@ -126,6 +146,18 @@ font-size:14px;
 
 tr:hover{
 background:#f8fafc;
+}
+
+/* IDENTIFIER BADGE */
+
+.badge{
+display:inline-block;
+background:#e0e7ff;
+color:#3730a3;
+padding:6px 10px;
+border-radius:6px;
+font-size:13px;
+margin-bottom:10px;
 }
 
 /* LINKS */
@@ -162,6 +194,7 @@ color:#64748b;
 <nav>
 
 <a href="/">Home</a>
+<a href="/create">Create</a>
 <a href="/browse">Identifiers</a>
 <a href="/browse-authors">Authors</a>
 <a href="/browse-datasets">Datasets</a>
@@ -195,3 +228,4 @@ ResEdge ID Registry • Research Edge and Publication Pvt Ltd
 }
 
 module.exports = layout;
+```
