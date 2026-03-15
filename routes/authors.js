@@ -2,68 +2,91 @@ const express = require("express");
 const router = express.Router();
 
 const pool = require("../db/db");
-const {generateAID} = require("../utils/idGenerator");
 const layout = require("../views/layout");
 
-router.get("/create-author",(req,res)=>{
+/* Browse Authors */
 
-res.send(layout("Create Author",`
+router.get("/browse-authors", async (req,res)=>{
 
-<form method="POST" action="/create-aid">
-
-Name
-<input name="name">
-
-Institution
-<input name="institution">
-
-<button>Create Author</button>
-
-</form>
-
-`));
-
-});
-
-router.post("/create-aid",async(req,res)=>{
-
-const id = await generateAID();
-
-const {name,institution}=req.body;
-
-await pool.query(
-"INSERT INTO authors(id,name,institution) VALUES($1,$2,$3)",
-[id,name,institution]
+const result = await pool.query(
+"SELECT * FROM authors ORDER BY id DESC"
 );
 
-res.send(layout("Author Created",`
+let rows="";
 
-Author ID: ${id}
+result.rows.forEach(a=>{
 
-<a href="/author/${id}">Open Profile</a>
+rows += `
+<tr>
+<td>${a.id}</td>
+<td>${a.name}</td>
+<td>${a.institution}</td>
+<td><a href="/author/${a.id}">Profile</a></td>
+</tr>
+`;
+
+});
+
+res.send(layout("Author Registry",`
+
+<h2>Author Registry</h2>
+
+<table>
+
+<tr>
+<th>ID</th>
+<th>Name</th>
+<th>Institution</th>
+<th>Profile</th>
+</tr>
+
+${rows}
+
+</table>
 
 `));
 
 });
 
-router.get("/author/:id",async(req,res)=>{
+/* Author Profile */
 
-const id=req.params.id;
+router.get("/author/:id", async (req,res)=>{
 
-const author=await pool.query(
+const id = req.params.id;
+
+const author = await pool.query(
 "SELECT * FROM authors WHERE id=$1",
 [id]
 );
 
 if(author.rows.length===0){
-return res.send("Author not found");
+return res.send(layout("Not Found","Author not found"));
 }
 
-res.send(layout("Author",`
+const papers = await pool.query(
+"SELECT * FROM identifiers WHERE author_id=$1",
+[id]
+);
+
+let pub="";
+
+papers.rows.forEach(p=>{
+pub += `<li><a href="/rid/${p.id}">${p.title}</a></li>`;
+});
+
+res.send(layout("Author Profile",`
 
 <h2>${author.rows[0].name}</h2>
 
-<p>${author.rows[0].institution}</p>
+<p><b>Author ID:</b> ${author.rows[0].id}</p>
+
+<p><b>Institution:</b> ${author.rows[0].institution}</p>
+
+<h3>Publications</h3>
+
+<ul>
+${pub}
+</ul>
 
 `));
 
