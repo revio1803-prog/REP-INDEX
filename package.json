@@ -1,6 +1,7 @@
 {
   "name": "rep-index",
   "version": "1.0.0",
+  "description": "Research Identifier Network",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
