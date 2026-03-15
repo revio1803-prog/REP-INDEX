@@ -2,47 +2,48 @@ const express = require("express");
 const { Pool } = require("pg");
 
 const app = express();
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 3000;
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+connectionString: process.env.DATABASE_URL,
+ssl: { rejectUnauthorized: false }
 });
 
-/* ---------- Initialize Database ---------- */
+/* ---------- DATABASE INIT ---------- */
 
-async function initDB() {
+async function initDB(){
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS authors (
-      id TEXT PRIMARY KEY,
-      name TEXT,
-      institution TEXT
-    )
-  `);
+await pool.query(`
+CREATE TABLE IF NOT EXISTS authors(
+id TEXT PRIMARY KEY,
+name TEXT,
+institution TEXT
+)
+`);
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS identifiers (
-      id TEXT PRIMARY KEY,
-      title TEXT,
-      url TEXT,
-      year TEXT
-    )
-  `);
+await pool.query(`
+CREATE TABLE IF NOT EXISTS identifiers(
+id TEXT PRIMARY KEY,
+title TEXT,
+url TEXT,
+year TEXT
+)
+`);
 
-  await pool.query(`
-    ALTER TABLE identifiers
-    ADD COLUMN IF NOT EXISTS author_id TEXT
-  `);
+await pool.query(`
+ALTER TABLE identifiers
+ADD COLUMN IF NOT EXISTS author_id TEXT
+`);
 
 }
 
 initDB().catch(console.error);
 
-/* ---------- Generate IDs ---------- */
+/* ---------- ID GENERATORS ---------- */
 
 async function generateRID(){
 
@@ -72,12 +73,13 @@ return `AID-${year}-${formatted}`;
 
 }
 
-/* ---------- Layout ---------- */
+/* ---------- LAYOUT ---------- */
 
 function layout(title,content){
 
 return `
 <html>
+
 <head>
 
 <title>${title}</title>
@@ -152,15 +154,17 @@ background:#eee;
 
 <header>
 
-<h2>REP INDEX</h2>
+<h2>ResEdge ID</h2>
 
 <nav>
+
 <a href="/">Home</a>
-<a href="/create">Create RID</a>
+<a href="/create">Create ID</a>
 <a href="/create-author">Create Author</a>
 <a href="/search">Search</a>
 <a href="/browse">Browse IDs</a>
 <a href="/browse-authors">Browse Authors</a>
+
 </nav>
 
 </header>
@@ -172,20 +176,21 @@ ${content}
 </div>
 
 </body>
+
 </html>
 `;
 
 }
 
-/* ---------- Home ---------- */
+/* ---------- HOME ---------- */
 
 app.get("/",(req,res)=>{
 
 res.send(layout("Home",`
 
-<h2>Research Identifier Registry</h2>
+<h2>ResEdge ID Registry</h2>
 
-<p>Persistent identifiers for research outputs and authors.</p>
+<p>Global Research Identifier System by Research Edge and Publication Pvt Ltd.</p>
 
 <a href="/create"><button>Create Identifier</button></a>
 
@@ -197,7 +202,7 @@ res.send(layout("Home",`
 
 });
 
-/* ---------- Create Author ---------- */
+/* ---------- CREATE AUTHOR ---------- */
 
 app.get("/create-author",(req,res)=>{
 
@@ -244,7 +249,7 @@ res.send(layout("Author Created",`
 
 });
 
-/* ---------- Author Profile ---------- */
+/* ---------- AUTHOR PROFILE ---------- */
 
 app.get("/author/:id", async (req,res)=>{
 
@@ -290,7 +295,7 @@ ${pub}
 
 });
 
-/* ---------- Create Identifier ---------- */
+/* ---------- CREATE IDENTIFIER ---------- */
 
 app.get("/create",(req,res)=>{
 
@@ -343,11 +348,29 @@ res.send(layout("Identifier Created",`
 
 });
 
-/* ---------- Identifier Record ---------- */
+/* ---------- SEARCH ---------- */
 
-app.get("/:id", async (req,res)=>{
+app.get("/search",(req,res)=>{
 
-const id = req.params.id;
+res.send(layout("Search",`
+
+<h2>Search Identifier</h2>
+
+<form action="/resolve">
+
+<input name="id" placeholder="Enter identifier">
+
+<button>Search</button>
+
+</form>
+
+`));
+
+});
+
+app.get("/resolve", async (req,res)=>{
+
+const id = req.query.id;
 
 const result = await pool.query(
 "SELECT * FROM identifiers WHERE id=$1",
@@ -355,32 +378,14 @@ const result = await pool.query(
 );
 
 if(result.rows.length===0){
-
 return res.send(layout("Not Found","Identifier not found"));
-
 }
 
-const data = result.rows[0];
-
-res.send(layout("Identifier Record",`
-
-<h2>${data.title}</h2>
-
-<p><b>ID:</b> ${data.id}</p>
-
-<p><b>Year:</b> ${data.year}</p>
-
-<p><b>Author:</b> ${data.author_id || "Not linked"}</p>
-
-<a href="${data.url}" target="_blank">
-<button>Open Resource</button>
-</a>
-
-`));
+res.redirect("/"+id);
 
 });
 
-/* ---------- Browse Identifiers ---------- */
+/* ---------- BROWSE IDENTIFIERS ---------- */
 
 app.get("/browse", async (req,res)=>{
 
@@ -401,7 +406,7 @@ rows += `
 `;
 });
 
-res.send(layout("Browse IDs",`
+res.send(layout("Browse Registry",`
 
 <h2>Identifier Registry</h2>
 
@@ -422,7 +427,7 @@ ${rows}
 
 });
 
-/* ---------- Browse Authors ---------- */
+/* ---------- BROWSE AUTHORS ---------- */
 
 app.get("/browse-authors", async (req,res)=>{
 
@@ -464,8 +469,45 @@ ${rows}
 
 });
 
-/* ---------- Start Server ---------- */
+/* ---------- IDENTIFIER RECORD (LAST ROUTE) ---------- */
+
+app.get("/:id", async (req,res)=>{
+
+const id = req.params.id;
+
+const result = await pool.query(
+"SELECT * FROM identifiers WHERE id=$1",
+[id]
+);
+
+if(result.rows.length===0){
+
+return res.send(layout("Not Found","Identifier not found"));
+
+}
+
+const data = result.rows[0];
+
+res.send(layout("Identifier Record",`
+
+<h2>${data.title}</h2>
+
+<p><b>ID:</b> ${data.id}</p>
+
+<p><b>Year:</b> ${data.year}</p>
+
+<p><b>Author:</b> ${data.author_id || "Not linked"}</p>
+
+<a href="${data.url}" target="_blank">
+<button>Open Resource</button>
+</a>
+
+`));
+
+});
+
+/* ---------- SERVER ---------- */
 
 app.listen(PORT,()=>{
-console.log("REP INDEX running");
+console.log("ResEdge ID running");
 });
