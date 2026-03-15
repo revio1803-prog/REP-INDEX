@@ -1,18 +1,14 @@
-```javascript
 function layout(title, content) {
 
-return `
-
-<!DOCTYPE html>
-<html>
+return `<!DOCTYPE html>
+<html lang="en">
 
 <head>
 
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
 <title>${title}</title>
-
-<meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
 
@@ -58,7 +54,7 @@ nav a:hover{
 color:white;
 }
 
-/* MAIN CONTAINER */
+/* MAIN */
 
 .container{
 max-width:1000px;
@@ -82,7 +78,7 @@ h1,h2,h3{
 margin-top:0;
 }
 
-/* LABELS */
+/* LABEL */
 
 label{
 display:block;
@@ -91,7 +87,7 @@ margin-bottom:4px;
 color:#334155;
 }
 
-/* INPUTS */
+/* INPUT */
 
 input,
 textarea{
@@ -148,7 +144,7 @@ tr:hover{
 background:#f8fafc;
 }
 
-/* IDENTIFIER BADGE */
+/* BADGE */
 
 .badge{
 display:inline-block;
@@ -192,14 +188,12 @@ color:#64748b;
 <h2>ResEdge ID</h2>
 
 <nav>
-
 <a href="/">Home</a>
 <a href="/create">Create</a>
 <a href="/browse">Identifiers</a>
 <a href="/browse-authors">Authors</a>
 <a href="/browse-datasets">Datasets</a>
 <a href="/search">Search</a>
-
 </nav>
 
 </header>
@@ -207,25 +201,18 @@ color:#64748b;
 <div class="container">
 
 <div class="card">
-
 ${content}
-
 </div>
 
 </div>
 
 <footer>
-
 ResEdge ID Registry • Research Edge and Publication Pvt Ltd
-
 </footer>
 
 </body>
 
-</html>
-
-`;
+</html>`;
 }
 
 module.exports = layout;
-```
