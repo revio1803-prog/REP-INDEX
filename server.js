@@ -33,8 +33,8 @@ res.send(layout("Home",`
 <h1>ResEdge ID Registry</h1>
 
 <p>
-A global research identifier infrastructure for
-authors, research publications, and datasets.
+A global research identifier infrastructure for authors,
+research publications, and datasets.
 </p>
 
 <br>
@@ -75,7 +75,7 @@ res.send(layout("Search",`
 
 });
 
-/* ---------- RESOLVER ---------- */
+/* ---------- RESOLVER (SEARCH BASED) ---------- */
 
 app.get("/resolve",(req,res)=>{
 
@@ -103,9 +103,11 @@ res.send("Identifier format not recognized");
 
 /* ---------- DIRECT IDENTIFIER RESOLVER ---------- */
 
-app.get("/:identifier", (req,res)=>{
+app.get("/:identifier",(req,res,next)=>{
 
 const id = req.params.identifier;
+
+/* sirf identifiers handle kare */
 
 if(id.startsWith("RID-")){
 return res.redirect("/rid/"+id);
@@ -119,11 +121,13 @@ if(id.startsWith("DID-")){
 return res.redirect("/dataset/"+id);
 }
 
-res.send("Identifier not recognized");
+/* agar identifier nahi hai to next route par jao */
+
+next();
 
 });
 
-/* ---------- SERVER ---------- */
+/* ---------- SERVER START ---------- */
 
 app.listen(PORT,()=>{
 
