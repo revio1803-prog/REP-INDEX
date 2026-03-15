@@ -4,51 +4,72 @@ const router = express.Router();
 const pool = require("../db/db");
 const layout = require("../views/layout");
 
-/* Browse datasets */
+/* ---------- CREATE DATASET PAGE ---------- */
 
-router.get("/browse-datasets", async (req,res)=>{
+router.get("/create-dataset",(req,res)=>{
 
-const result = await pool.query(
-"SELECT * FROM datasets ORDER BY id DESC"
-);
+res.send(layout("Create Dataset",`
 
-let rows="";
+<h2>Create Dataset Identifier</h2>
 
-result.rows.forEach(d=>{
+<form method="POST" action="/create-dataset">
 
-rows += `
-<tr>
-<td>${d.id}</td>
-<td>${d.title}</td>
-<td>${d.year}</td>
-<td><a href="/dataset/${d.id}">View</a></td>
-</tr>
-`;
+Title
+<input name="title" required>
 
-});
+Year
+<input name="year" required>
 
-res.send(layout("Dataset Registry",`
+Dataset URL
+<input name="dataset_url" required>
 
-<h2>Dataset Registry</h2>
+Author ID
+<input name="author_id">
 
-<table>
+<button>Create Dataset ID</button>
 
-<tr>
-<th>ID</th>
-<th>Title</th>
-<th>Year</th>
-<th>Record</th>
-</tr>
-
-${rows}
-
-</table>
+</form>
 
 `));
 
 });
 
-/* Dataset page */
+
+/* ---------- CREATE DATASET ---------- */
+
+router.post("/create-dataset", async (req,res)=>{
+
+const {title,year,dataset_url,author_id} = req.body;
+
+const result = await pool.query(
+"SELECT COUNT(*) FROM datasets"
+);
+
+const number = parseInt(result.rows[0].count) + 1;
+
+const id = `DID-${new Date().getFullYear()}-${String(number).padStart(5,"0")}`;
+
+await pool.query(
+"INSERT INTO datasets (id,title,year,dataset_url,author_id) VALUES ($1,$2,$3,$4,$5)",
+[id,title,year,dataset_url,author_id]
+);
+
+res.send(layout("Dataset Created",`
+
+<h2>Dataset Created</h2>
+
+<p><b>${id}</b></p>
+
+<a href="/dataset/${id}">
+<button>Open Dataset</button>
+</a>
+
+`));
+
+});
+
+
+/* ---------- DATASET PAGE ---------- */
 
 router.get("/dataset/:id", async (req,res)=>{
 
@@ -84,5 +105,6 @@ res.send(layout("Dataset Record",`
 `));
 
 });
+
 
 module.exports = router;
