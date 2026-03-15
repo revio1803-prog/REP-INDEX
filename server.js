@@ -2,7 +2,6 @@ const express = require("express");
 const { Pool } = require("pg");
 
 const app = express();
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -13,16 +12,25 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-/* initialize database */
+/* ---------- Initialize Database ---------- */
 
 async function initDB() {
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS authors (
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      institution TEXT
+    )
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS identifiers (
       id TEXT PRIMARY KEY,
       title TEXT,
       url TEXT,
-      year TEXT
+      year TEXT,
+      author_id TEXT
     )
   `);
 
@@ -30,15 +38,13 @@ async function initDB() {
 
 initDB().catch(console.error);
 
-/* generate identifier */
+/* ---------- Generate IDs ---------- */
 
 async function generateRID(){
 
 const year = new Date().getFullYear();
 
-const result = await pool.query(
-"SELECT COUNT(*) FROM identifiers"
-);
+const result = await pool.query("SELECT COUNT(*) FROM identifiers");
 
 const number = parseInt(result.rows[0].count) + 1;
 
@@ -48,13 +54,26 @@ return `RID-${year}-${formatted}`;
 
 }
 
-/* layout */
+async function generateAID(){
+
+const year = new Date().getFullYear();
+
+const result = await pool.query("SELECT COUNT(*) FROM authors");
+
+const number = parseInt(result.rows[0].count) + 1;
+
+const formatted = String(number).padStart(5,"0");
+
+return `AID-${year}-${formatted}`;
+
+}
+
+/* ---------- Layout ---------- */
 
 function layout(title,content){
 
 return `
 <html>
-
 <head>
 
 <title>${title}</title>
@@ -115,11 +134,10 @@ border-collapse:collapse;
 th,td{
 border:1px solid #ddd;
 padding:10px;
-text-align:left;
 }
 
 th{
-background:#f0f0f0;
+background:#eee;
 }
 
 </style>
@@ -133,12 +151,12 @@ background:#f0f0f0;
 <h2>REP INDEX</h2>
 
 <nav>
-
 <a href="/">Home</a>
-<a href="/create">Create</a>
+<a href="/create">Create RID</a>
+<a href="/create-author">Create Author</a>
 <a href="/search">Search</a>
-<a href="/browse">Browse</a>
-
+<a href="/browse">Browse IDs</a>
+<a href="/browse-authors">Browse Authors</a>
 </nav>
 
 </header>
@@ -150,13 +168,12 @@ ${content}
 </div>
 
 </body>
-
 </html>
 `;
 
 }
 
-/* homepage */
+/* ---------- Home ---------- */
 
 app.get("/",(req,res)=>{
 
@@ -164,11 +181,11 @@ res.send(layout("Home",`
 
 <h2>Research Identifier Registry</h2>
 
-<p>This system registers persistent identifiers for research outputs.</p>
+<p>Persistent identifiers for research outputs and authors.</p>
 
 <a href="/create"><button>Create Identifier</button></a>
 
-<a href="/search"><button>Search Identifier</button></a>
+<a href="/create-author"><button>Create Author</button></a>
 
 <a href="/browse"><button>Browse Registry</button></a>
 
@@ -176,15 +193,100 @@ res.send(layout("Home",`
 
 });
 
-/* health */
+/* ---------- Create Author ---------- */
 
-app.get("/health",(req,res)=>{
+app.get("/create-author",(req,res)=>{
 
-res.json({status:"OK"});
+res.send(layout("Create Author",`
+
+<h2>Create Author Profile</h2>
+
+<form method="POST" action="/create-aid">
+
+Name
+<input name="name" required>
+
+Institution
+<input name="institution" required>
+
+<button>Create Author ID</button>
+
+</form>
+
+`));
 
 });
 
-/* create page */
+app.post("/create-aid", async (req,res)=>{
+
+const id = await generateAID();
+
+const {name,institution} = req.body;
+
+await pool.query(
+"INSERT INTO authors (id,name,institution) VALUES ($1,$2,$3)",
+[id,name,institution]
+);
+
+res.send(layout("Author Created",`
+
+<h2>Author ID Created</h2>
+
+<p><b>${id}</b></p>
+
+<a href="/author/${id}"><button>Open Profile</button></a>
+
+`));
+
+});
+
+/* ---------- Author Profile ---------- */
+
+app.get("/author/:id", async (req,res)=>{
+
+const id = req.params.id;
+
+const author = await pool.query(
+"SELECT * FROM authors WHERE id=$1",
+[id]
+);
+
+if(author.rows.length===0){
+
+return res.send(layout("Not Found","Author not found"));
+
+}
+
+const papers = await pool.query(
+"SELECT * FROM identifiers WHERE author_id=$1",
+[id]
+);
+
+let pub="";
+
+papers.rows.forEach(p=>{
+pub += `<li><a href="/${p.id}">${p.title}</a></li>`;
+});
+
+res.send(layout("Author Profile",`
+
+<h2>${author.rows[0].name}</h2>
+
+<p><b>Author ID:</b> ${author.rows[0].id}</p>
+
+<p><b>Institution:</b> ${author.rows[0].institution}</p>
+
+<h3>Publications</h3>
+
+<ul>
+${pub}
+</ul>
+
+`));
+
+});
+
+/* ---------- Create Identifier ---------- */
 
 app.get("/create",(req,res)=>{
 
@@ -203,6 +305,9 @@ Year
 Resource URL
 <input name="url" required>
 
+Author ID
+<input name="author_id">
+
 <button>Create Identifier</button>
 
 </form>
@@ -211,20 +316,15 @@ Resource URL
 
 });
 
-/* create identifier */
-
 app.post("/create-rid", async (req,res)=>{
 
 const id = await generateRID();
 
-const {title,url,year} = req.body;
+const {title,url,year,author_id} = req.body;
 
 await pool.query(
-
-"INSERT INTO identifiers (id,title,url,year) VALUES ($1,$2,$3,$4)",
-
-[id,title,url,year]
-
+"INSERT INTO identifiers (id,title,url,year,author_id) VALUES ($1,$2,$3,$4,$5)",
+[id,title,url,year,author_id]
 );
 
 res.send(layout("Identifier Created",`
@@ -239,38 +339,15 @@ res.send(layout("Identifier Created",`
 
 });
 
-/* search page */
+/* ---------- Identifier Record ---------- */
 
-app.get("/search",(req,res)=>{
+app.get("/:id", async (req,res)=>{
 
-res.send(layout("Search Identifier",`
-
-<h2>Search Identifier</h2>
-
-<form action="/resolve">
-
-<input name="id" placeholder="Enter identifier">
-
-<button>Search</button>
-
-</form>
-
-`));
-
-});
-
-/* resolve search */
-
-app.get("/resolve", async (req,res)=>{
-
-const id = req.query.id;
+const id = req.params.id;
 
 const result = await pool.query(
-
 "SELECT * FROM identifiers WHERE id=$1",
-
 [id]
-
 );
 
 if(result.rows.length===0){
@@ -279,24 +356,37 @@ return res.send(layout("Not Found","Identifier not found"));
 
 }
 
-res.redirect("/"+id);
+const data = result.rows[0];
+
+res.send(layout("Identifier Record",`
+
+<h2>${data.title}</h2>
+
+<p><b>ID:</b> ${data.id}</p>
+
+<p><b>Year:</b> ${data.year}</p>
+
+<p><b>Author:</b> ${data.author_id || "Not linked"}</p>
+
+<a href="${data.url}" target="_blank">
+<button>Open Resource</button>
+</a>
+
+`));
 
 });
 
-/* browse registry */
+/* ---------- Browse Identifiers ---------- */
 
 app.get("/browse", async (req,res)=>{
 
 const result = await pool.query(
-
 "SELECT * FROM identifiers ORDER BY id DESC LIMIT 50"
-
 );
 
 let rows="";
 
 result.rows.forEach(r=>{
-
 rows += `
 <tr>
 <td>${r.id}</td>
@@ -305,10 +395,9 @@ rows += `
 <td><a href="/${r.id}">View</a></td>
 </tr>
 `;
-
 });
 
-res.send(layout("Browse Registry",`
+res.send(layout("Browse IDs",`
 
 <h2>Identifier Registry</h2>
 
@@ -329,50 +418,50 @@ ${rows}
 
 });
 
-/* identifier record */
+/* ---------- Browse Authors ---------- */
 
-app.get("/:id", async (req,res)=>{
-
-const id = req.params.id;
+app.get("/browse-authors", async (req,res)=>{
 
 const result = await pool.query(
-
-"SELECT * FROM identifiers WHERE id=$1",
-
-[id]
-
+"SELECT * FROM authors ORDER BY id DESC"
 );
 
-if(result.rows.length===0){
+let rows="";
 
-return res.send(layout("Not Found","Identifier not found"));
+result.rows.forEach(a=>{
+rows += `
+<tr>
+<td>${a.id}</td>
+<td>${a.name}</td>
+<td>${a.institution}</td>
+<td><a href="/author/${a.id}">Profile</a></td>
+</tr>
+`;
+});
 
-}
+res.send(layout("Authors",`
 
-const data = result.rows[0];
+<h2>Author Registry</h2>
 
-res.send(layout("Identifier Record",`
+<table>
 
-<h2>Identifier Record</h2>
+<tr>
+<th>ID</th>
+<th>Name</th>
+<th>Institution</th>
+<th>Profile</th>
+</tr>
 
-<p><b>ID:</b> ${data.id}</p>
+${rows}
 
-<p><b>Title:</b> ${data.title}</p>
-
-<p><b>Year:</b> ${data.year}</p>
-
-<a href="${data.url}" target="_blank">
-<button>Open Resource</button>
-</a>
+</table>
 
 `));
 
 });
 
-/* start server */
+/* ---------- Start Server ---------- */
 
 app.listen(PORT,()=>{
-
 console.log("REP INDEX running");
-
 });
