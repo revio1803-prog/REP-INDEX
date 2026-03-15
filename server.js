@@ -6,6 +6,7 @@ const authorRoutes = require("./routes/authors");
 const datasetRoutes = require("./routes/datasets");
 
 const layout = require("./views/layout");
+const pool = require("./db/db");
 
 const app = express();
 
@@ -13,6 +14,44 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 3000;
+
+/* ---------- DATABASE AUTO UPDATE ---------- */
+
+async function updateDatabase(){
+
+try{
+
+await pool.query(`
+ALTER TABLE identifiers
+ADD COLUMN IF NOT EXISTS abstract TEXT
+`);
+
+await pool.query(`
+ALTER TABLE identifiers
+ADD COLUMN IF NOT EXISTS keywords TEXT
+`);
+
+await pool.query(`
+ALTER TABLE identifiers
+ADD COLUMN IF NOT EXISTS journal TEXT
+`);
+
+await pool.query(`
+ALTER TABLE identifiers
+ADD COLUMN IF NOT EXISTS publisher TEXT
+`);
+
+console.log("Metadata columns ready");
+
+}catch(err){
+
+console.log("Database update error",err);
+
+}
+
+}
+
+updateDatabase();
 
 /* ---------- API ROUTES ---------- */
 
@@ -33,8 +72,8 @@ res.send(layout("Home",`
 <h1>ResEdge ID Registry</h1>
 
 <p>
-A global research identifier infrastructure for authors,
-research publications, and datasets.
+A global research identifier infrastructure for
+authors, research publications, and datasets.
 </p>
 
 <br>
@@ -107,8 +146,6 @@ app.get("/:identifier",(req,res,next)=>{
 
 const id = req.params.identifier;
 
-/* sirf identifiers handle kare */
-
 if(id.startsWith("RID-")){
 return res.redirect("/rid/"+id);
 }
@@ -120,8 +157,6 @@ return res.redirect("/author/"+id);
 if(id.startsWith("DID-")){
 return res.redirect("/dataset/"+id);
 }
-
-/* agar identifier nahi hai to next route par jao */
 
 next();
 
