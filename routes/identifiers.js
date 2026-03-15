@@ -1,60 +1,60 @@
-```javascript
 const express = require("express");
 const router = express.Router();
 
 const pool = require("../db/db");
 const layout = require("../views/layout");
 
+
 /* ---------- CREATE IDENTIFIER PAGE ---------- */
 
-router.get("/create",(req,res)=>{
+router.get("/create", (req, res) => {
 
-res.send(layout("Create Identifier",`
-
+const html = `
 <h2>Create Research Identifier</h2>
 
 <form method="POST" action="/create">
 
 <label>Title</label>
-<input name="title" required>
+<input type="text" name="title" required>
 
 <label>Year</label>
-<input name="year" required>
+<input type="number" name="year" required>
 
 <label>Resource URL</label>
-<input name="url" required>
+<input type="url" name="url" required>
 
 <label>Author ID</label>
-<input name="author_id">
+<input type="text" name="author_id">
 
 <label>Journal</label>
-<input name="journal">
+<input type="text" name="journal">
 
 <label>Publisher</label>
-<input name="publisher">
+<input type="text" name="publisher">
 
 <label>Keywords</label>
-<input name="keywords">
+<input type="text" name="keywords">
 
 <label>Abstract</label>
 <textarea name="abstract" rows="6"></textarea>
 
-<br>
+<br><br>
 
-<button>Create Identifier</button>
+<button type="submit">Create Identifier</button>
 
 </form>
+`;
 
-`));
+res.send(layout("Create Identifier", html));
 
 });
 
 
 /* ---------- CREATE IDENTIFIER ---------- */
 
-router.post("/create", async (req,res)=>{
+router.post("/create", async (req, res) => {
 
-try{
+try {
 
 const {
 title,
@@ -67,7 +67,7 @@ keywords,
 abstract
 } = req.body;
 
-/* generate id */
+/* Count existing identifiers */
 
 const result = await pool.query(
 "SELECT COUNT(*) FROM identifiers"
@@ -75,32 +75,37 @@ const result = await pool.query(
 
 const number = parseInt(result.rows[0].count) + 1;
 
-const id = `RID-${new Date().getFullYear()}-${String(number).padStart(5,"0")}`;
+/* Generate RID */
 
-/* insert */
+const id =
+"RID-" +
+new Date().getFullYear() +
+"-" +
+String(number).padStart(5, "0");
+
+/* Insert record */
 
 await pool.query(
-
 `INSERT INTO identifiers
 (id,title,url,year,author_id,journal,publisher,keywords,abstract)
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-
 [
 id,
 title,
 url,
-year,
+parseInt(year),
 author_id || null,
 journal || null,
 publisher || null,
 keywords || null,
 abstract || null
 ]
-
 );
 
-res.send(layout("Identifier Created",`
-
+res.send(
+layout(
+"Identifier Created",
+`
 <h2>Identifier Created</h2>
 
 <p><b>${id}</b></p>
@@ -108,14 +113,20 @@ res.send(layout("Identifier Created",`
 <a href="/rid/${id}">
 <button>Open Record</button>
 </a>
+`
+)
+);
 
-`));
+} catch (err) {
 
-}catch(err){
+console.error(err);
 
-console.log(err);
-
-res.send(layout("Error","Error creating identifier"));
+res.send(
+layout(
+"Error",
+"<h2>Error creating identifier</h2>"
+)
+);
 
 }
 
@@ -124,15 +135,17 @@ res.send(layout("Error","Error creating identifier"));
 
 /* ---------- BROWSE IDENTIFIERS ---------- */
 
-router.get("/browse", async (req,res)=>{
+router.get("/browse", async (req, res) => {
+
+try {
 
 const result = await pool.query(
 "SELECT * FROM identifiers ORDER BY id DESC LIMIT 50"
 );
 
-let rows="";
+let rows = "";
 
-result.rows.forEach(r=>{
+result.rows.forEach(r => {
 
 rows += `
 <tr>
@@ -145,11 +158,13 @@ rows += `
 
 });
 
-res.send(layout("Identifier Registry",`
-
+res.send(
+layout(
+"Identifier Registry",
+`
 <h2>Identifier Registry</h2>
 
-<table>
+<table border="1" cellpadding="8">
 
 <tr>
 <th>ID</th>
@@ -161,15 +176,26 @@ res.send(layout("Identifier Registry",`
 ${rows}
 
 </table>
+`
+)
+);
 
-`));
+} catch (err) {
+
+console.error(err);
+
+res.send(layout("Error", "Failed to load identifiers"));
+
+}
 
 });
 
 
 /* ---------- IDENTIFIER RECORD ---------- */
 
-router.get("/rid/:id", async (req,res)=>{
+router.get("/rid/:id", async (req, res) => {
+
+try {
 
 const id = req.params.id;
 
@@ -178,16 +204,18 @@ const result = await pool.query(
 [id]
 );
 
-if(result.rows.length===0){
+if (result.rows.length === 0) {
 
-return res.send(layout("Not Found","Identifier not found"));
+return res.send(layout("Not Found", "Identifier not found"));
 
 }
 
 const data = result.rows[0];
 
-res.send(layout("Identifier Record",`
-
+res.send(
+layout(
+"Identifier Record",
+`
 <h2>${data.title}</h2>
 
 <p><b>ID:</b> ${data.id}</p>
@@ -202,8 +230,6 @@ res.send(layout("Identifier Record",`
 
 <p><b>Keywords:</b> ${data.keywords || "-"}</p>
 
-<br>
-
 <h3>Abstract</h3>
 
 <p>${data.abstract || "No abstract available."}</p>
@@ -213,10 +239,19 @@ res.send(layout("Identifier Record",`
 <a href="${data.url}" target="_blank">
 <button>Open Resource</button>
 </a>
+`
+)
+);
 
-`));
+} catch (err) {
+
+console.error(err);
+
+res.send(layout("Error", "Failed to load record"));
+
+}
 
 });
 
+
 module.exports = router;
-```
