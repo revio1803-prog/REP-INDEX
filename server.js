@@ -2,131 +2,136 @@ const express = require("express");
 const app = express();
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 3000;
 
-/* -----------------------------
-   In-memory registry database
---------------------------------*/
+/* database */
 
 const registry = {
-  articles: {},
-  authors: {},
-  datasets: {}
+  articles: {}
 };
 
-/* -----------------------------
-   Homepage
---------------------------------*/
+/* homepage */
 
 app.get("/", (req, res) => {
-  res.send("REP INDEX identifier system running");
+  res.send(`
+  <h1>REP INDEX Research Identifier System</h1>
+  <p>Welcome to the identifier registry.</p>
+
+  <a href="/create">Create Identifier</a><br>
+  <a href="/search">Search Identifier</a>
+  `);
 });
 
-/* -----------------------------
-   Health Check
---------------------------------*/
+/* health */
 
 app.get("/health", (req, res) => {
   res.json({ status: "OK" });
 });
 
-/* -----------------------------
-   Create Research Article ID
---------------------------------*/
+/* create page */
+
+app.get("/create", (req, res) => {
+  res.send(`
+  <h2>Create Research Article ID</h2>
+
+  <form method="POST" action="/create-rid">
+
+  Title<br>
+  <input name="title"/><br><br>
+
+  URL<br>
+  <input name="url"/><br><br>
+
+  <button type="submit">Create ID</button>
+
+  </form>
+  `);
+});
+
+/* create rid */
 
 app.post("/create-rid", (req, res) => {
 
   const id = "RID-" + Date.now();
 
-  const { title, url } = req.body;
-
   registry.articles[id] = {
-    title: title || "Untitled Article",
-    url: url || "https://example.com"
+    title: req.body.title,
+    url: req.body.url
   };
 
-  res.json({
-    message: "RID created",
-    id: id,
-    data: registry.articles[id]
-  });
+  res.send(`
+  <h2>Identifier Created</h2>
+
+  <p>ID: ${id}</p>
+
+  <a href="/${id}">Open Identifier</a>
+  `);
+});
+
+/* search page */
+
+app.get("/search", (req, res) => {
+  res.send(`
+  <h2>Search Identifier</h2>
+
+  <form action="/resolve">
+
+  <input name="id"/>
+
+  <button>Search</button>
+
+  </form>
+  `);
+});
+
+/* resolver search */
+
+app.get("/resolve", (req, res) => {
+
+  const id = req.query.id;
+
+  if (registry.articles[id]) {
+
+    res.redirect("/" + id);
+
+  } else {
+
+    res.send("Identifier not found");
+
+  }
 
 });
 
-/* -----------------------------
-   Create Author ID
---------------------------------*/
-
-app.post("/create-aid", (req, res) => {
-
-  const id = "AID-" + Date.now();
-
-  const { name, affiliation } = req.body;
-
-  registry.authors[id] = {
-    name: name || "Unknown Author",
-    affiliation: affiliation || "Unknown"
-  };
-
-  res.json({
-    message: "Author ID created",
-    id: id,
-    data: registry.authors[id]
-  });
-
-});
-
-/* -----------------------------
-   Create Dataset ID
---------------------------------*/
-
-app.post("/create-did", (req, res) => {
-
-  const id = "DID-" + Date.now();
-
-  const { title, url } = req.body;
-
-  registry.datasets[id] = {
-    title: title || "Dataset",
-    url: url || "https://example.com"
-  };
-
-  res.json({
-    message: "Dataset ID created",
-    id: id,
-    data: registry.datasets[id]
-  });
-
-});
-
-/* -----------------------------
-   Resolver System
---------------------------------*/
+/* resolver */
 
 app.get("/:id", (req, res) => {
 
   const id = req.params.id;
 
   if (registry.articles[id]) {
-    return res.redirect(registry.articles[id].url);
-  }
 
-  if (registry.datasets[id]) {
-    return res.redirect(registry.datasets[id].url);
-  }
+    const data = registry.articles[id];
 
-  if (registry.authors[id]) {
-    return res.json(registry.authors[id]);
-  }
+    res.send(`
+    <h2>Identifier Record</h2>
 
-  res.status(404).send("Identifier not found");
+    <p>ID: ${id}</p>
+    <p>Title: ${data.title}</p>
+
+    <a href="${data.url}">Open Resource</a>
+    `);
+
+  } else {
+
+    res.send("Identifier not found");
+
+  }
 
 });
 
-/* -----------------------------
-   Start Server
---------------------------------*/
+/* start server */
 
 app.listen(PORT, () => {
   console.log("REP INDEX running on port " + PORT);
