@@ -4,6 +4,64 @@ const router = express.Router();
 const pool = require("../db/db");
 const layout = require("../views/layout");
 
+/* ---------- CREATE AUTHOR PAGE ---------- */
+
+router.get("/create-author",(req,res)=>{
+
+res.send(layout("Create Author",`
+
+<h2>Create Author Profile</h2>
+
+<form method="POST" action="/create-author">
+
+Name
+<input name="name" required>
+
+Institution
+<input name="institution" required>
+
+<button>Create Author ID</button>
+
+</form>
+
+`));
+
+});
+
+
+/* ---------- CREATE AUTHOR ---------- */
+
+router.post("/create-author", async (req,res)=>{
+
+const {name,institution} = req.body;
+
+const result = await pool.query(
+"SELECT COUNT(*) FROM authors"
+);
+
+const number = parseInt(result.rows[0].count) + 1;
+
+const id = `AID-${new Date().getFullYear()}-${String(number).padStart(5,"0")}`;
+
+await pool.query(
+"INSERT INTO authors (id,name,institution) VALUES ($1,$2,$3)",
+[id,name,institution]
+);
+
+res.send(layout("Author Created",`
+
+<h2>Author Created</h2>
+
+<p><b>${id}</b></p>
+
+<a href="/author/${id}">
+<button>Open Profile</button>
+</a>
+
+`));
+
+});
+
 /* Browse Authors */
 
 router.get("/browse-authors", async (req,res)=>{
