@@ -16,6 +16,7 @@ const pool = new Pool({
 /* initialize database */
 
 async function initDB() {
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS identifiers (
       id TEXT PRIMARY KEY,
@@ -24,23 +25,27 @@ async function initDB() {
       year TEXT
     )
   `);
+
 }
 
 initDB().catch(console.error);
 
-/* generate ID */
+/* generate identifier */
 
-async function generateRID() {
+async function generateRID(){
 
-  const year = new Date().getFullYear();
+const year = new Date().getFullYear();
 
-  const result = await pool.query("SELECT COUNT(*) FROM identifiers");
+const result = await pool.query(
+"SELECT COUNT(*) FROM identifiers"
+);
 
-  const number = parseInt(result.rows[0].count) + 1;
+const number = parseInt(result.rows[0].count) + 1;
 
-  const formatted = String(number).padStart(5,"0");
+const formatted = String(number).padStart(5,"0");
 
-  return `RID-${year}-${formatted}`;
+return `RID-${year}-${formatted}`;
+
 }
 
 /* layout */
@@ -49,6 +54,7 @@ function layout(title,content){
 
 return `
 <html>
+
 <head>
 
 <title>${title}</title>
@@ -57,7 +63,7 @@ return `
 
 body{
 font-family:Arial;
-background:#f5f7fb;
+background:#f4f6fb;
 margin:0;
 }
 
@@ -91,6 +97,7 @@ border:none;
 padding:10px 20px;
 border-radius:6px;
 cursor:pointer;
+margin-right:10px;
 }
 
 input{
@@ -98,6 +105,21 @@ padding:8px;
 width:100%;
 margin-top:5px;
 margin-bottom:15px;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+}
+
+th,td{
+border:1px solid #ddd;
+padding:10px;
+text-align:left;
+}
+
+th{
+background:#f0f0f0;
 }
 
 </style>
@@ -111,9 +133,12 @@ margin-bottom:15px;
 <h2>REP INDEX</h2>
 
 <nav>
+
 <a href="/">Home</a>
-<a href="/create">Create ID</a>
+<a href="/create">Create</a>
 <a href="/search">Search</a>
+<a href="/browse">Browse</a>
+
 </nav>
 
 </header>
@@ -125,8 +150,10 @@ ${content}
 </div>
 
 </body>
+
 </html>
 `;
+
 }
 
 /* homepage */
@@ -137,11 +164,13 @@ res.send(layout("Home",`
 
 <h2>Research Identifier Registry</h2>
 
-<p>This system registers persistent research identifiers.</p>
+<p>This system registers persistent identifiers for research outputs.</p>
 
 <a href="/create"><button>Create Identifier</button></a>
 
 <a href="/search"><button>Search Identifier</button></a>
+
+<a href="/browse"><button>Browse Registry</button></a>
 
 `));
 
@@ -182,7 +211,7 @@ Resource URL
 
 });
 
-/* create */
+/* create identifier */
 
 app.post("/create-rid", async (req,res)=>{
 
@@ -191,11 +220,14 @@ const id = await generateRID();
 const {title,url,year} = req.body;
 
 await pool.query(
+
 "INSERT INTO identifiers (id,title,url,year) VALUES ($1,$2,$3,$4)",
+
 [id,title,url,year]
+
 );
 
-res.send(layout("Created",`
+res.send(layout("Identifier Created",`
 
 <h2>Identifier Created</h2>
 
@@ -211,7 +243,7 @@ res.send(layout("Created",`
 
 app.get("/search",(req,res)=>{
 
-res.send(layout("Search",`
+res.send(layout("Search Identifier",`
 
 <h2>Search Identifier</h2>
 
@@ -227,15 +259,18 @@ res.send(layout("Search",`
 
 });
 
-/* resolve */
+/* resolve search */
 
 app.get("/resolve", async (req,res)=>{
 
 const id = req.query.id;
 
 const result = await pool.query(
+
 "SELECT * FROM identifiers WHERE id=$1",
+
 [id]
+
 );
 
 if(result.rows.length===0){
@@ -248,15 +283,64 @@ res.redirect("/"+id);
 
 });
 
-/* identifier page */
+/* browse registry */
+
+app.get("/browse", async (req,res)=>{
+
+const result = await pool.query(
+
+"SELECT * FROM identifiers ORDER BY id DESC LIMIT 50"
+
+);
+
+let rows="";
+
+result.rows.forEach(r=>{
+
+rows += `
+<tr>
+<td>${r.id}</td>
+<td>${r.title}</td>
+<td>${r.year}</td>
+<td><a href="/${r.id}">View</a></td>
+</tr>
+`;
+
+});
+
+res.send(layout("Browse Registry",`
+
+<h2>Identifier Registry</h2>
+
+<table>
+
+<tr>
+<th>ID</th>
+<th>Title</th>
+<th>Year</th>
+<th>Record</th>
+</tr>
+
+${rows}
+
+</table>
+
+`));
+
+});
+
+/* identifier record */
 
 app.get("/:id", async (req,res)=>{
 
 const id = req.params.id;
 
 const result = await pool.query(
+
 "SELECT * FROM identifiers WHERE id=$1",
+
 [id]
+
 );
 
 if(result.rows.length===0){
@@ -267,7 +351,7 @@ return res.send(layout("Not Found","Identifier not found"));
 
 const data = result.rows[0];
 
-res.send(layout("Record",`
+res.send(layout("Identifier Record",`
 
 <h2>Identifier Record</h2>
 
