@@ -1,4 +1,3 @@
-```javascript
 const express = require("express");
 const router = express.Router();
 
@@ -10,9 +9,9 @@ const { generateRID, generateAID, generateDID } = require("../utils/idGenerator"
    CREATE RESEARCH IDENTIFIER (RID)
 ========================================================= */
 
-router.post("/create-rid", async (req,res)=>{
+router.post("/create-rid", async (req, res) => {
 
-try{
+try {
 
 const {
 title,
@@ -25,40 +24,46 @@ keywords,
 abstract
 } = req.body;
 
+/* validation */
+
+if (!title || !url || !year) {
+return res.status(400).json({
+success: false,
+error: "title, url and year are required"
+});
+}
+
 const id = await generateRID();
 
 await pool.query(
-
 `INSERT INTO identifiers
 (id,title,url,year,author_id,journal,publisher,keywords,abstract)
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-
 [
 id,
 title,
 url,
-year,
+parseInt(year),
 author_id || null,
 journal || null,
 publisher || null,
 keywords || null,
 abstract || null
 ]
-
 );
 
 res.json({
-success:true,
-rid:id
+success: true,
+rid: id
 });
 
-}catch(err){
+} catch (err) {
 
 console.error(err);
 
 res.status(500).json({
-success:false,
-error:"Unable to create RID"
+success: false,
+error: "Unable to create RID"
 });
 
 }
@@ -70,31 +75,44 @@ error:"Unable to create RID"
    CREATE AUTHOR IDENTIFIER (AID)
 ========================================================= */
 
-router.post("/create-aid", async (req,res)=>{
+router.post("/create-aid", async (req, res) => {
 
-try{
+try {
 
-const {name,institution} = req.body;
+const { name, institution } = req.body;
+
+if (!name) {
+return res.status(400).json({
+success: false,
+error: "Author name is required"
+});
+}
 
 const id = await generateAID();
 
 await pool.query(
-"INSERT INTO authors (id,name,institution) VALUES ($1,$2,$3)",
-[id,name,institution]
+`INSERT INTO authors
+(id,name,institution)
+VALUES ($1,$2,$3)`,
+[
+id,
+name,
+institution || null
+]
 );
 
 res.json({
-success:true,
-aid:id
+success: true,
+aid: id
 });
 
-}catch(err){
+} catch (err) {
 
 console.error(err);
 
 res.status(500).json({
-success:false,
-error:"Unable to create AID"
+success: false,
+error: "Unable to create AID"
 });
 
 }
@@ -106,9 +124,9 @@ error:"Unable to create AID"
    CREATE DATASET IDENTIFIER (DID)
 ========================================================= */
 
-router.post("/create-did", async (req,res)=>{
+router.post("/create-did", async (req, res) => {
 
-try{
+try {
 
 const {
 title,
@@ -117,25 +135,40 @@ dataset_url,
 author_id
 } = req.body;
 
+if (!title || !year || !dataset_url) {
+return res.status(400).json({
+success: false,
+error: "title, year and dataset_url are required"
+});
+}
+
 const id = await generateDID();
 
 await pool.query(
-"INSERT INTO datasets (id,title,year,dataset_url,author_id) VALUES ($1,$2,$3,$4,$5)",
-[id,title,year,dataset_url,author_id]
+`INSERT INTO datasets
+(id,title,year,dataset_url,author_id)
+VALUES ($1,$2,$3,$4,$5)`,
+[
+id,
+title,
+parseInt(year),
+dataset_url,
+author_id || null
+]
 );
 
 res.json({
-success:true,
-did:id
+success: true,
+did: id
 });
 
-}catch(err){
+} catch (err) {
 
 console.error(err);
 
 res.status(500).json({
-success:false,
-error:"Unable to create DID"
+success: false,
+error: "Unable to create DID"
 });
 
 }
@@ -144,12 +177,12 @@ error:"Unable to create DID"
 
 
 /* =========================================================
-   FETCH IDENTIFIER METADATA (API)
+   FETCH IDENTIFIER METADATA
 ========================================================= */
 
-router.get("/rid/:id", async (req,res)=>{
+router.get("/rid/:id", async (req, res) => {
 
-try{
+try {
 
 const id = req.params.id;
 
@@ -158,22 +191,25 @@ const result = await pool.query(
 [id]
 );
 
-if(result.rows.length===0){
-
+if (result.rows.length === 0) {
 return res.status(404).json({
-error:"Identifier not found"
+success: false,
+error: "Identifier not found"
 });
-
 }
 
-res.json(result.rows[0]);
+res.json({
+success: true,
+data: result.rows[0]
+});
 
-}catch(err){
+} catch (err) {
 
 console.error(err);
 
 res.status(500).json({
-error:"Unable to fetch record"
+success: false,
+error: "Unable to fetch record"
 });
 
 }
@@ -182,4 +218,3 @@ error:"Unable to fetch record"
 
 
 module.exports = router;
-```
