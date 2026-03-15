@@ -106,24 +106,11 @@ return `
 
 <style>
 
-body{
-font-family:Arial;
-background:#f4f6fb;
-margin:0;
-}
+body{font-family:Arial;background:#f4f6fb;margin:0;}
 
-header{
-background:#1e293b;
-color:white;
-padding:20px;
-}
+header{background:#1e293b;color:white;padding:20px;}
 
-nav a{
-color:white;
-margin-right:20px;
-text-decoration:none;
-font-weight:bold;
-}
+nav a{color:white;margin-right:20px;text-decoration:none;font-weight:bold;}
 
 .container{
 max-width:900px;
@@ -152,19 +139,11 @@ margin-top:5px;
 margin-bottom:15px;
 }
 
-table{
-width:100%;
-border-collapse:collapse;
-}
+table{width:100%;border-collapse:collapse;}
 
-th,td{
-border:1px solid #ddd;
-padding:10px;
-}
+th,td{border:1px solid #ddd;padding:10px;}
 
-th{
-background:#eee;
-}
+th{background:#eee;}
 
 </style>
 
@@ -300,7 +279,7 @@ const datasets = await pool.query(
 
 let pub="";
 papers.rows.forEach(p=>{
-pub += `<li><a href="/${p.id}">${p.title}</a></li>`;
+pub += `<li><a href="/rid/${p.id}">${p.title}</a></li>`;
 });
 
 let data="";
@@ -373,13 +352,48 @@ res.send(layout("Identifier Created",`
 
 <p><b>${id}</b></p>
 
-<a href="/${id}"><button>Open Record</button></a>
+<a href="/rid/${id}"><button>Open Record</button></a>
 
 `));
 
 });
 
-/* ---------- CREATE DATASET ---------- */
+/* ---------- RID RECORD ---------- */
+
+app.get("/rid/:id", async (req,res)=>{
+
+const id = req.params.id;
+
+const result = await pool.query(
+"SELECT * FROM identifiers WHERE id=$1",
+[id]
+);
+
+if(result.rows.length===0){
+return res.send(layout("Not Found","Identifier not found"));
+}
+
+const data = result.rows[0];
+
+res.send(layout("Identifier Record",`
+
+<h2>${data.title}</h2>
+
+<p><b>ID:</b> ${data.id}</p>
+
+<p><b>Year:</b> ${data.year}</p>
+
+<p><b>Author:</b> ${data.author_id || "Not linked"}</p>
+
+<a href="${data.url}" target="_blank">
+<button>Open Resource</button>
+</a>
+
+`));
+
+});
+
+/* ---------- DATASET CREATE ---------- */
 
 app.get("/create-dataset",(req,res)=>{
 
@@ -432,7 +446,7 @@ res.send(layout("Dataset Created",`
 
 });
 
-/* ---------- DATASET PAGE ---------- */
+/* ---------- DATASET RECORD ---------- */
 
 app.get("/dataset/:id", async (req,res)=>{
 
@@ -462,6 +476,90 @@ res.send(layout("Dataset Record",`
 <a href="${data.dataset_url}" target="_blank">
 <button>Download Dataset</button>
 </a>
+
+`));
+
+});
+
+/* ---------- BROWSE IDENTIFIERS ---------- */
+
+app.get("/browse", async (req,res)=>{
+
+const result = await pool.query(
+"SELECT * FROM identifiers ORDER BY id DESC LIMIT 50"
+);
+
+let rows="";
+
+result.rows.forEach(r=>{
+rows += `
+<tr>
+<td>${r.id}</td>
+<td>${r.title}</td>
+<td>${r.year}</td>
+<td><a href="/rid/${r.id}">View</a></td>
+</tr>
+`;
+});
+
+res.send(layout("Browse Registry",`
+
+<h2>Identifier Registry</h2>
+
+<table>
+
+<tr>
+<th>ID</th>
+<th>Title</th>
+<th>Year</th>
+<th>Record</th>
+</tr>
+
+${rows}
+
+</table>
+
+`));
+
+});
+
+/* ---------- BROWSE AUTHORS ---------- */
+
+app.get("/browse-authors", async (req,res)=>{
+
+const result = await pool.query(
+"SELECT * FROM authors ORDER BY id DESC"
+);
+
+let rows="";
+
+result.rows.forEach(a=>{
+rows += `
+<tr>
+<td>${a.id}</td>
+<td>${a.name}</td>
+<td>${a.institution}</td>
+<td><a href="/author/${a.id}">Profile</a></td>
+</tr>
+`;
+});
+
+res.send(layout("Authors",`
+
+<h2>Author Registry</h2>
+
+<table>
+
+<tr>
+<th>ID</th>
+<th>Name</th>
+<th>Institution</th>
+<th>Profile</th>
+</tr>
+
+${rows}
+
+</table>
 
 `));
 
@@ -509,80 +607,43 @@ ${rows}
 
 });
 
-/* ---------- BROWSE IDENTIFIERS ---------- */
+/* ---------- SEARCH ---------- */
 
-app.get("/browse", async (req,res)=>{
+app.get("/search",(req,res)=>{
 
-const result = await pool.query(
-"SELECT * FROM identifiers ORDER BY id DESC LIMIT 50"
-);
+res.send(layout("Search",`
 
-let rows="";
+<h2>Search Identifier</h2>
 
-result.rows.forEach(r=>{
-rows += `
-<tr>
-<td>${r.id}</td>
-<td>${r.title}</td>
-<td>${r.year}</td>
-<td><a href="/${r.id}">View</a></td>
-</tr>
-`;
-});
+<form action="/resolve">
 
-res.send(layout("Browse Registry",`
+<input name="id" placeholder="Enter RID/AID/DID">
 
-<h2>Identifier Registry</h2>
+<button>Search</button>
 
-<table>
-
-<tr>
-<th>ID</th>
-<th>Title</th>
-<th>Year</th>
-<th>Record</th>
-</tr>
-
-${rows}
-
-</table>
+</form>
 
 `));
 
 });
 
-/* ---------- IDENTIFIER RECORD ---------- */
+app.get("/resolve",(req,res)=>{
 
-app.get("/:id", async (req,res)=>{
+const id = req.query.id;
 
-const id = req.params.id;
-
-const result = await pool.query(
-"SELECT * FROM identifiers WHERE id=$1",
-[id]
-);
-
-if(result.rows.length===0){
-return res.send(layout("Not Found","Identifier not found"));
+if(id.startsWith("RID-")){
+return res.redirect("/rid/"+id);
 }
 
-const data = result.rows[0];
+if(id.startsWith("AID-")){
+return res.redirect("/author/"+id);
+}
 
-res.send(layout("Identifier Record",`
+if(id.startsWith("DID-")){
+return res.redirect("/dataset/"+id);
+}
 
-<h2>${data.title}</h2>
-
-<p><b>ID:</b> ${data.id}</p>
-
-<p><b>Year:</b> ${data.year}</p>
-
-<p><b>Author:</b> ${data.author_id || "Not linked"}</p>
-
-<a href="${data.url}" target="_blank">
-<button>Open Resource</button>
-</a>
-
-`));
+res.send("Identifier not recognized");
 
 });
 
