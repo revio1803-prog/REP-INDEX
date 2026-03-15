@@ -24,6 +24,14 @@ app.get("/", (req, res) => {
 });
 
 /* -----------------------------
+   Health Check
+--------------------------------*/
+
+app.get("/health", (req, res) => {
+  res.json({ status: "OK" });
+});
+
+/* -----------------------------
    Create Research Article ID
 --------------------------------*/
 
@@ -114,14 +122,6 @@ app.get("/:id", (req, res) => {
 
   res.status(404).send("Identifier not found");
 
-});
-
-/* -----------------------------
-   Health Check
---------------------------------*/
-
-app.get("/health", (req, res) => {
-  res.json({ status: "OK" });
 });
 
 /* -----------------------------
