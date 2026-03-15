@@ -4,14 +4,14 @@ const router = express.Router();
 const pool = require("../db/db");
 const {generateRID,generateAID,generateDID} = require("../utils/idGenerator");
 
-router.post("/create-rid",async(req,res)=>{
+router.post("/create-rid", async (req,res)=>{
 
-const {title,url,year,author_id}=req.body;
+const {title,url,year,author_id} = req.body;
 
-const id=await generateRID();
+const id = await generateRID();
 
 await pool.query(
-"INSERT INTO identifiers(id,title,url,year,author_id) VALUES($1,$2,$3,$4,$5)",
+"INSERT INTO identifiers (id,title,url,year,author_id) VALUES ($1,$2,$3,$4,$5)",
 [id,title,url,year,author_id]
 );
 
@@ -19,14 +19,29 @@ res.json({rid:id});
 
 });
 
-router.post("/create-did",async(req,res)=>{
+router.post("/create-aid", async (req,res)=>{
 
-const {title,year,dataset_url,author_id}=req.body;
+const {name,institution} = req.body;
 
-const id=await generateDID();
+const id = await generateAID();
 
 await pool.query(
-"INSERT INTO datasets(id,title,year,dataset_url,author_id) VALUES($1,$2,$3,$4,$5)",
+"INSERT INTO authors (id,name,institution) VALUES ($1,$2,$3)",
+[id,name,institution]
+);
+
+res.json({aid:id});
+
+});
+
+router.post("/create-did", async (req,res)=>{
+
+const {title,year,dataset_url,author_id} = req.body;
+
+const id = await generateDID();
+
+await pool.query(
+"INSERT INTO datasets (id,title,year,dataset_url,author_id) VALUES ($1,$2,$3,$4,$5)",
 [id,title,year,dataset_url,author_id]
 );
 
