@@ -4,7 +4,10 @@ const router = express.Router();
 const pool = require("../db/db");
 const layout = require("../views/layout");
 
-/* ---------- CREATE DATASET PAGE ---------- */
+
+/* =====================================================
+CREATE DATASET PAGE
+===================================================== */
 
 router.get("/create-dataset",(req,res)=>{
 
@@ -14,17 +17,19 @@ res.send(layout("Create Dataset",`
 
 <form method="POST" action="/create-dataset">
 
-Title
+<label>Title</label>
 <input name="title" required>
 
-Year
+<label>Year</label>
 <input name="year" required>
 
-Dataset URL
+<label>Dataset URL</label>
 <input name="dataset_url" required>
 
-Author ID
+<label>Author ID</label>
 <input name="author_id">
+
+<br>
 
 <button>Create Dataset ID</button>
 
@@ -35,11 +40,17 @@ Author ID
 });
 
 
-/* ---------- CREATE DATASET ---------- */
+/* =====================================================
+CREATE DATASET
+===================================================== */
 
 router.post("/create-dataset", async (req,res)=>{
 
+try{
+
 const {title,year,dataset_url,author_id} = req.body;
+
+/* generate DID */
 
 const result = await pool.query(
 "SELECT COUNT(*) FROM datasets"
@@ -47,12 +58,28 @@ const result = await pool.query(
 
 const number = parseInt(result.rows[0].count) + 1;
 
-const id = `DID-${new Date().getFullYear()}-${String(number).padStart(5,"0")}`;
+const id =
+"DID-" +
+new Date().getFullYear() +
+"-" +
+String(number).padStart(5,"0");
+
+
+/* insert dataset */
 
 await pool.query(
-"INSERT INTO datasets (id,title,year,dataset_url,author_id) VALUES ($1,$2,$3,$4,$5)",
-[id,title,year,dataset_url,author_id]
+`INSERT INTO datasets
+(id,title,year,dataset_url,author_id)
+VALUES ($1,$2,$3,$4,$5)`,
+[
+id,
+title,
+parseInt(year),
+dataset_url,
+author_id || null
+]
 );
+
 
 res.send(layout("Dataset Created",`
 
@@ -66,12 +93,81 @@ res.send(layout("Dataset Created",`
 
 `));
 
+}catch(err){
+
+console.error(err);
+
+res.send(layout("Error","Dataset creation failed"));
+
+}
+
 });
 
 
-/* ---------- DATASET PAGE ---------- */
+/* =====================================================
+BROWSE DATASETS
+===================================================== */
+
+router.get("/browse-datasets", async (req,res)=>{
+
+try{
+
+const result = await pool.query(
+"SELECT * FROM datasets ORDER BY id DESC LIMIT 50"
+);
+
+let rows = "";
+
+result.rows.forEach(d=>{
+
+rows += `
+<tr>
+<td>${d.id}</td>
+<td>${d.title}</td>
+<td>${d.year}</td>
+<td><a href="/dataset/${d.id}">View</a></td>
+</tr>
+`;
+
+});
+
+res.send(layout("Dataset Registry",`
+
+<h2>Dataset Registry</h2>
+
+<table>
+
+<tr>
+<th>ID</th>
+<th>Title</th>
+<th>Year</th>
+<th>Record</th>
+</tr>
+
+${rows}
+
+</table>
+
+`));
+
+}catch(err){
+
+console.error(err);
+
+res.send(layout("Error","Failed to load datasets"));
+
+}
+
+});
+
+
+/* =====================================================
+DATASET RECORD
+===================================================== */
 
 router.get("/dataset/:id", async (req,res)=>{
+
+try{
 
 const id = req.params.id;
 
@@ -80,7 +176,7 @@ const result = await pool.query(
 [id]
 );
 
-if(result.rows.length===0){
+if(result.rows.length === 0){
 return res.send(layout("Not Found","Dataset not found"));
 }
 
@@ -103,6 +199,14 @@ res.send(layout("Dataset Record",`
 </a>
 
 `));
+
+}catch(err){
+
+console.error(err);
+
+res.send(layout("Error","Failed to load dataset"));
+
+}
 
 });
 
