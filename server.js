@@ -1,6 +1,10 @@
 const express = require("express");
 
 const apiRoutes = require("./routes/api");
+const identifierRoutes = require("./routes/identifiers");
+const authorRoutes = require("./routes/authors");
+const datasetRoutes = require("./routes/datasets");
+
 const layout = require("./views/layout");
 
 const app = express();
@@ -13,6 +17,12 @@ const PORT = process.env.PORT || 3000;
 /* ---------- API ROUTES ---------- */
 
 app.use("/api", apiRoutes);
+
+/* ---------- WEB ROUTES ---------- */
+
+app.use(identifierRoutes);
+app.use(authorRoutes);
+app.use(datasetRoutes);
 
 /* ---------- HOME PAGE ---------- */
 
@@ -45,7 +55,7 @@ authors, research publications, and datasets.
 
 });
 
-/* ---------- SIMPLE SEARCH PAGE ---------- */
+/* ---------- SEARCH PAGE ---------- */
 
 app.get("/search",(req,res)=>{
 
@@ -65,7 +75,7 @@ res.send(layout("Search",`
 
 });
 
-/* ---------- RESOLVER SYSTEM ---------- */
+/* ---------- RESOLVER ---------- */
 
 app.get("/resolve",(req,res)=>{
 
@@ -91,7 +101,7 @@ res.send("Identifier format not recognized");
 
 });
 
-/* ---------- SERVER START ---------- */
+/* ---------- SERVER ---------- */
 
 app.listen(PORT,()=>{
 
