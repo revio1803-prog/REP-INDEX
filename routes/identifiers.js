@@ -5,9 +5,24 @@ const pool = require("../db/db");
 const layout = require("../views/layout");
 
 
-/* ---------- CREATE IDENTIFIER PAGE ---------- */
+/* ---------- SIMPLE HTML ESCAPE ---------- */
 
-router.get("/create", (req, res) => {
+function escapeHTML(text) {
+if (!text) return "";
+return text
+.replace(/&/g,"&amp;")
+.replace(/</g,"&lt;")
+.replace(/>/g,"&gt;")
+.replace(/"/g,"&quot;")
+.replace(/'/g,"&#039;");
+}
+
+
+/* =====================================================
+   CREATE IDENTIFIER PAGE
+===================================================== */
+
+router.get("/create", (req,res)=>{
 
 const html = `
 <h2>Create Research Identifier</h2>
@@ -50,11 +65,13 @@ res.send(layout("Create Identifier", html));
 });
 
 
-/* ---------- CREATE IDENTIFIER ---------- */
+/* =====================================================
+   CREATE IDENTIFIER
+===================================================== */
 
-router.post("/create", async (req, res) => {
+router.post("/create", async (req,res)=>{
 
-try {
+try{
 
 const {
 title,
@@ -67,28 +84,41 @@ keywords,
 abstract
 } = req.body;
 
-/* Count existing identifiers */
 
-const result = await pool.query(
+/* basic validation */
+
+if(!title || !url || !year){
+
+return res.send(
+layout("Error","Title, URL and Year are required")
+);
+
+}
+
+
+/* generate RID */
+
+const countResult = await pool.query(
 "SELECT COUNT(*) FROM identifiers"
 );
 
-const number = parseInt(result.rows[0].count) + 1;
-
-/* Generate RID */
+const number = parseInt(countResult.rows[0].count) + 1;
 
 const id =
 "RID-" +
 new Date().getFullYear() +
 "-" +
-String(number).padStart(5, "0");
+String(number).padStart(5,"0");
 
-/* Insert record */
+
+/* insert into database */
 
 await pool.query(
+
 `INSERT INTO identifiers
 (id,title,url,year,author_id,journal,publisher,keywords,abstract)
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+
 [
 id,
 title,
@@ -100,9 +130,14 @@ publisher || null,
 keywords || null,
 abstract || null
 ]
+
 );
 
+
+/* success page */
+
 res.send(
+
 layout(
 "Identifier Created",
 `
@@ -115,17 +150,15 @@ layout(
 </a>
 `
 )
+
 );
 
-} catch (err) {
+}catch(err){
 
 console.error(err);
 
 res.send(
-layout(
-"Error",
-"<h2>Error creating identifier</h2>"
-)
+layout("Error","Error creating identifier")
 );
 
 }
@@ -133,11 +166,13 @@ layout(
 });
 
 
-/* ---------- BROWSE IDENTIFIERS ---------- */
+/* =====================================================
+   BROWSE IDENTIFIERS
+===================================================== */
 
-router.get("/browse", async (req, res) => {
+router.get("/browse", async (req,res)=>{
 
-try {
+try{
 
 const result = await pool.query(
 "SELECT * FROM identifiers ORDER BY id DESC LIMIT 50"
@@ -145,20 +180,22 @@ const result = await pool.query(
 
 let rows = "";
 
-result.rows.forEach(r => {
+result.rows.forEach(r=>{
 
 rows += `
 <tr>
-<td>${r.id}</td>
-<td>${r.title}</td>
-<td>${r.year}</td>
+<td>${escapeHTML(r.id)}</td>
+<td>${escapeHTML(r.title)}</td>
+<td>${escapeHTML(String(r.year))}</td>
 <td><a href="/rid/${r.id}">View</a></td>
 </tr>
 `;
 
 });
 
+
 res.send(
+
 layout(
 "Identifier Registry",
 `
@@ -178,24 +215,27 @@ ${rows}
 </table>
 `
 )
+
 );
 
-} catch (err) {
+}catch(err){
 
 console.error(err);
 
-res.send(layout("Error", "Failed to load identifiers"));
+res.send(layout("Error","Failed to load identifiers"));
 
 }
 
 });
 
 
-/* ---------- IDENTIFIER RECORD ---------- */
+/* =====================================================
+   IDENTIFIER RECORD
+===================================================== */
 
-router.get("/rid/:id", async (req, res) => {
+router.get("/rid/:id", async (req,res)=>{
 
-try {
+try{
 
 const id = req.params.id;
 
@@ -204,35 +244,38 @@ const result = await pool.query(
 [id]
 );
 
-if (result.rows.length === 0) {
+if(result.rows.length === 0){
 
-return res.send(layout("Not Found", "Identifier not found"));
+return res.send(
+layout("Not Found","Identifier not found")
+);
 
 }
 
 const data = result.rows[0];
 
 res.send(
+
 layout(
 "Identifier Record",
 `
-<h2>${data.title}</h2>
+<h2>${escapeHTML(data.title)}</h2>
 
-<p><b>ID:</b> ${data.id}</p>
+<p><b>ID:</b> ${escapeHTML(data.id)}</p>
 
-<p><b>Year:</b> ${data.year}</p>
+<p><b>Year:</b> ${escapeHTML(String(data.year))}</p>
 
-<p><b>Author:</b> ${data.author_id || "Not linked"}</p>
+<p><b>Author:</b> ${escapeHTML(data.author_id || "Not linked")}</p>
 
-<p><b>Journal:</b> ${data.journal || "-"}</p>
+<p><b>Journal:</b> ${escapeHTML(data.journal || "-")}</p>
 
-<p><b>Publisher:</b> ${data.publisher || "-"}</p>
+<p><b>Publisher:</b> ${escapeHTML(data.publisher || "-")}</p>
 
-<p><b>Keywords:</b> ${data.keywords || "-"}</p>
+<p><b>Keywords:</b> ${escapeHTML(data.keywords || "-")}</p>
 
 <h3>Abstract</h3>
 
-<p>${data.abstract || "No abstract available."}</p>
+<p>${escapeHTML(data.abstract || "No abstract available.")}</p>
 
 <br>
 
@@ -241,13 +284,14 @@ layout(
 </a>
 `
 )
+
 );
 
-} catch (err) {
+}catch(err){
 
 console.error(err);
 
-res.send(layout("Error", "Failed to load record"));
+res.send(layout("Error","Failed to load record"));
 
 }
 
