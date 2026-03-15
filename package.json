@@ -1,7 +1,7 @@
 {
-  "name": "rep-index",
+  "name": "resedge-id",
   "version": "1.0.0",
-  "description": "Research Identifier Registry",
+  "description": "ResEdge ID - Global Research Identifier System",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
