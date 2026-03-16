@@ -1,40 +1,38 @@
-const pool = require("../db/db");
+const pool = require("../config/db");
 
-async function generateRID() {
+async function generateIdentifier(type){
 
-  const year = new Date().getFullYear();
+let prefix = "10.1001";
+let code = "";
 
-  const result = await pool.query("SELECT COUNT(*) FROM identifiers");
+if(type === "author") code = "AUTH";
+if(type === "dataset") code = "DATA";
+if(type === "paper") code = "PAPR";
 
-  const number = parseInt(result.rows[0].count) + 1;
+const result = await pool.query(
+`SELECT number FROM identifiers
+WHERE type=$1
+ORDER BY number DESC
+LIMIT 1`,
+[type]
+);
 
-  return `RID-${year}-${String(number).padStart(5,"0")}`;
+let nextNumber = 1;
+
+if(result.rows.length > 0){
+nextNumber = result.rows[0].number + 1;
 }
 
-async function generateAID() {
+let numberStr = String(nextNumber).padStart(5,"0");
 
-  const year = new Date().getFullYear();
+let identifier = `${prefix}/${code}${numberStr}`;
 
-  const result = await pool.query("SELECT COUNT(*) FROM authors");
-
-  const number = parseInt(result.rows[0].count) + 1;
-
-  return `AID-${year}-${String(number).padStart(5,"0")}`;
-}
-
-async function generateDID() {
-
-  const year = new Date().getFullYear();
-
-  const result = await pool.query("SELECT COUNT(*) FROM datasets");
-
-  const number = parseInt(result.rows[0].count) + 1;
-
-  return `DID-${year}-${String(number).padStart(5,"0")}`;
-}
-
-module.exports = {
-  generateRID,
-  generateAID,
-  generateDID
+return {
+identifier,
+prefix,
+number: nextNumber
 };
+
+}
+
+module.exports = generateIdentifier;
