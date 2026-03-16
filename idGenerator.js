@@ -9,14 +9,11 @@ if(type === "author") code = "AUTH";
 if(type === "dataset") code = "DATA";
 if(type === "paper") code = "PAPR";
 
-/* last number find karo */
-
 const result = await pool.query(
-`SELECT number
- FROM identifiers
- WHERE type=$1
- ORDER BY number DESC
- LIMIT 1`,
+`SELECT number FROM identifiers
+WHERE type=$1
+ORDER BY number DESC
+LIMIT 1`,
 [type]
 );
 
@@ -26,11 +23,7 @@ if(result.rows.length > 0){
 nextNumber = result.rows[0].number + 1;
 }
 
-/* number format */
-
 let numberStr = String(nextNumber).padStart(5,"0");
-
-/* identifier */
 
 let identifier = `${prefix}/${code}${numberStr}`;
 
